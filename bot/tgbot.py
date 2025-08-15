@@ -4,20 +4,13 @@ from datetime import time
 import random
 import os
 
-TOKEN = "7955129896:AAFFELHyZXB2mikm4UTBw3LFRuHoeOW-U14"
+# Токен бота (хранится прямо в коде)
+TOKEN = "7955129896:AAFFELHyZXB2mikm4UTBw3LFRuHoeOW-U14"  # Замените на реальный токен
 
+# Конфигурация
 IMAGES_FOLDER = "valentine_images"
-
-# Список картинок (должны быть в папке IMAGES_FOLDER)
-VALENTINE_IMAGES = [
-    "heart1.jpeg",
-    "heart2.jpeg",
-    "heart3.jpeg",
-    "heart4.jpeg",
-    "heart5.jpeg",
-    "heart6.jpeg",
-    "heart7.jpeg"
-]
+VALENTINE_IMAGES = ["heart1.jpeg", "heart2.jpeg", "heart3.jpeg", "heart4.jpeg", "heart5.jpeg", "heart6.jpeg",
+                    "heart7.jpeg"]
 COMPLIMENTS = ["Ты сияешь ярче звёзд! ✨",
                "Твоя улыбка делает мир лучше! 😊",
                "Ты — самое красивое, что случалось в моей жизни! 💘",
@@ -36,66 +29,66 @@ MORNING_MESSAGES = ["Доброе утро, солнышко! 🌞 Пусть д
 
 # Клавиатура
 KEYBOARD = [
-    ["🎀 Старт"],  # Основное меню
+    ["🎀 Старт"],
     ["💌 Валентинка", "🌟 Комплимент"],
     ["💭 Почему я тебя люблю?"]
 ]
 
 
+async def send_morning_message(context: ContextTypes.DEFAULT_TYPE):
+    """Отправка утреннего сообщения"""
+    await context.bot.send_message(
+        chat_id=context.job.chat_id,
+        text=random.choice(MORNING_MESSAGES)
+    )
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик команды /start и кнопки 'Старт'"""
+    """Обработчик команды /start"""
+    # Инициализация job_queue если отсутствует
+    if not hasattr(context, 'job_queue') or context.job_queue is None:
+        context.job_queue = context.application.job_queue
+
     await update.message.reply_text(
         "Привет! Я бот, который дарит любовь 💖 Выбери:",
-        reply_markup=ReplyKeyboardMarkup(KEYBOARD, resize_keyboard=True)
-    )
+        reply_markup=ReplyKeyboardMarkup(KEYBOARD, resize_keyboard=True))
 
-    # Устанавливаем ежедневное "Доброе утро"
-    chat_id = update.effective_chat.id
-    context.job_queue.run_daily(
-        send_morning_message,
+    # Настройка ежедневного сообщения
+    context.job_queue.run_daily(send_morning_message,
         time=time(hour=8, minute=30),
-        chat_id=chat_id
+        chat_id=update.effective_chat.id
     )
 
-async def send_morning_message(context: ContextTypes.DEFAULT_TYPE):
-        """Отправляет утреннее сообщение"""
-        await context.bot.send_message(
-            chat_id=context.job.chat_id,
-            text=random.choice(MORNING_MESSAGES)
-        )
+    async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Обработчик текстовых сообщений"""
+        text = update.message.text
+        if text == "🎀 Старт":
+            await start(update, context)
+        elif text == "💌 Валентинка":
+            image_path = os.path.join(IMAGES_FOLDER, random.choice(VALENTINE_IMAGES))
+            await update.message.reply_photo(
+                photo=open(image_path, 'rb'),
+                caption="Для тебя с любовью! 💝")
+        elif text == "🌟 Комплимент":
+            await update.message.reply_text(random.choice(COMPLIMENTS))
+        elif text == "💭 Почему я тебя люблю?":
+            name = update.message.from_user.first_name or "солнышко"
+            await update.message.reply_text(f"{name}, я тебя люблю...\n\n{random.choice(LOVE_REASONS)}")
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if text == "🎀 Старт":
-        await start(update, context)
-    elif text == "💌 Валентинка":
-        # Выбираем случайное изображение
-        image_path = os.path.join(IMAGES_FOLDER, random.choice(VALENTINE_IMAGES))
+    def main():
+        """Запуск бота"""
+        # Проверка папки с изображениями
+        if not os.path.exists(IMAGES_FOLDER):
+            os.makedirs(IMAGES_FOLDER)
+            print(f"Создана папка {IMAGES_FOLDER}. Добавьте изображения!")
 
-        # Отправляем картинку
-        await update.message.reply_photo(
-            photo=open(image_path, 'rb'),
-            caption="Для тебя с любовью! 💝"
-        )
-    elif text == "🌟 Комплимент":
-        await update.message.reply_text(random.choice(COMPLIMENTS))
-    elif text == "💭 Почему я тебя люблю?":
-        user_name = update.message.from_user.first_name or "солнышко"
-        await update.message.reply_text(
-            f"{user_name}, я тебя люблю...\n\n{random.choice(LOVE_REASONS)}"
-        )
+        # Создание и настройка приложения
+        app = Application.builder().token(TOKEN).build()
 
-def main():
-    # Проверяем наличие папки с изображениями
-    if not os.path.exists(IMAGES_FOLDER):
-        os.makedirs(IMAGES_FOLDER)
-        print(f"Создана папка {IMAGES_FOLDER}. Добавьте туда изображения!")
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        # Регистрация обработчиков
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("Бот запущен! 🚀")
-    app.run_polling()
+        print("Бот запущен! 🚀")
+        app.run_polling()
 
-if __name__ == "__main__":
-    main()
+    if __name__ == "__main__":
+        main()
